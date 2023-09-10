@@ -11,7 +11,7 @@ class Tag(models.Model):
         max_length=7, unique=True, verbose_name='Цвет в HEX',
         validators=[
             RegexValidator(regex=r'^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$',
-            message='Цвет должен быть в формате HEX')
+                           message='Цвет должен быть в формате HEX')
         ],
     )
     slug = models.SlugField(max_length=200, unique=True,
