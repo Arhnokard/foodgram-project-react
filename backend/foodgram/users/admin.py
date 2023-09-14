@@ -10,7 +10,7 @@ class UserAdmin(admin.ModelAdmin):
     list_display = (
         'username', 'first_name', 'last_name', 'email', 'is_active'
     )
-    list_filter = ('first_name', 'email',)
+    search_fields = ('first_name', 'email',)
 
 
 class FollowAdmin(admin.ModelAdmin):

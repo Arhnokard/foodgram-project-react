@@ -1,4 +1,4 @@
-from django.http import HttpResponse
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet
@@ -10,11 +10,13 @@ from api.filters import IngredientFilter, RecipeFilter
 from api.pagination import CustomPagination
 from api.permissions import IsAdminOrReadOnly, IsOwnerOrReadOnly
 from api.serializers import (CustomUserSerializer, IngredientSerializer,
-                             RecipeMiniSerializer, RecipeSerializer,
-                             TagSerializer, UserSubscription)
+                             RecipeMiniSerializer, ReadRecipeSerializer,
+                             CreateRecipeSerializer, TagSerializer,
+                             UserSubscription)
 from recipes.models import (Favorite, Ingredient, IngredientinRecipe, Recipe,
                             Shopping, Tag)
 from users.models import Follow, User
+from .utils import create_shopping_cart
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -44,12 +46,7 @@ class CustomUserViewSet(UserViewSet):
         page = self.paginate_queryset(subs)
         serializer = UserSubscription(
             page, many=True, context={'request': request})
-        response_data = {
-            'count': subs.count(),
-            'next': self.paginator.get_next_link(),
-            'previous': self.paginator.get_previous_link(),
-            'results': serializer.data}
-        return Response(response_data)
+        return self.get_paginated_response(serializer.data)
 
     @action(
         methods=['post', 'delete'], detail=True,
@@ -59,13 +56,13 @@ class CustomUserViewSet(UserViewSet):
         user = self.request.user
         following = get_object_or_404(User, pk=id)
         if request.method == 'POST':
-            if user != following and not Follow.objects.filter(
-                    user=user, following=following).exists():
-                follow = Follow.objects.create(user=user, following=following)
-                serializer = UserSubscription(
-                    following, context={'request': request})
-                return Response(
-                    data=serializer.data, status=status.HTTP_201_CREATED)
+            serializer = UserSubscription(
+                following, data=request.data, context={'request': request}
+            )
+            if serializer.is_valid():
+                Follow.objects.create(user=user, following=following)
+                return Response(data=serializer.data,
+                                status=status.HTTP_201_CREATED)
             return Response(status=status.HTTP_400_BAD_REQUEST)
         follow = get_object_or_404(Follow, user=user, following=following)
         follow.delete()
@@ -74,11 +71,19 @@ class CustomUserViewSet(UserViewSet):
 
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
-    serializer_class = RecipeSerializer
     permission_classes = (IsOwnerOrReadOnly,)
+    serializer_class = ReadRecipeSerializer
     pagination_class = CustomPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
+
+    def get_serializer_class(self):
+        if self.request.method in ('POST', 'PATCH'):
+            return CreateRecipeSerializer
+        return ReadRecipeSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
 
     @action(methods=['post', 'delete'], detail=True)
     def shopping_cart(self, request, pk):
@@ -117,24 +122,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, permission_classes=(permissions.IsAuthenticated,))
     def download_shopping_cart(self, request):
-        user = self.request.user
         ingredients = IngredientinRecipe.objects.filter(
-            recipe__users_shopping_list__user=user).values(
-                'ingredient__name', 'ingredient__measurement_unit', 'amount')
-        ingredients_data = {}
-        for ing in ingredients:
-            name_unit = (f"{ing['ingredient__name']} "
-                         f"({ing['ingredient__measurement_unit']})")
-            amount = ing['amount']
-            if name_unit in ingredients_data:
-                ingredients_data[name_unit] += amount
-            else:
-                ingredients_data[name_unit] = amount
-        ingredient_list = "Cписок покупок:\n"
-        for name, amount in ingredients_data.items():
-            ingredient_list += f'\n{name} -> {amount}'
-        file = 'shopping-list.txt'
-        response = HttpResponse(
-            ingredient_list, content_type='text/plain')
-        response['Content-Disposition'] = f'attachment; filename="{file}.txt"'
-        return response
+            recipe__users_shopping_list__user=request.user
+        ).order_by('ingredient__name').values(
+            'ingredient__name', 'ingredient__measurement_unit'
+        ).annotate(amount=Sum('amount'))
+        return create_shopping_cart(ingredients)

@@ -11,10 +11,12 @@ class TagAdmin(admin.ModelAdmin):
 class IngredientAdmin(admin.ModelAdmin):
     list_display = ('name', 'measurement_unit')
     list_filter = ('name',)
+    search_fields = ('name',)
 
 
 class IngredientinRecipeInline(admin.TabularInline):
     model = IngredientinRecipe
+    min_num = 1
 
 
 class RecipeFilter(admin.SimpleListFilter):
@@ -36,6 +38,7 @@ class RecipeFilter(admin.SimpleListFilter):
 class RecipeAdmin(admin.ModelAdmin):
     list_display = ('name', 'author', 'add_in_favorites')
     list_filter = ('author', 'name', 'tags')
+    search_fields = ('author__email', 'name', 'tags__name')
     inlines = [IngredientinRecipeInline]
 
     def add_in_favorites(self, obj):
