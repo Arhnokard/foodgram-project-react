@@ -16,7 +16,7 @@ from api.serializers import (CustomUserSerializer, IngredientSerializer,
 from recipes.models import (Favorite, Ingredient, IngredientinRecipe, Recipe,
                             Shopping, Tag)
 from users.models import Follow, User
-from .utils import create_shopping_cart
+from .utils import create_shopping_cart, joint_post, joint_delete
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -53,18 +53,19 @@ class CustomUserViewSet(UserViewSet):
         permission_classes=(permissions.IsAuthenticated,)
     )
     def subscribe(self, request, id):
-        user = self.request.user
         following = get_object_or_404(User, pk=id)
         if request.method == 'POST':
             serializer = UserSubscription(
                 following, data=request.data, context={'request': request}
             )
             if serializer.is_valid():
-                Follow.objects.create(user=user, following=following)
+                Follow.objects.create(user=request.user, following=following)
                 return Response(data=serializer.data,
                                 status=status.HTTP_201_CREATED)
             return Response(status=status.HTTP_400_BAD_REQUEST)
-        follow = get_object_or_404(Follow, user=user, following=following)
+        follow = get_object_or_404(
+            Follow, user=request.user, following=following
+        )
         follow.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -87,38 +88,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(methods=['post', 'delete'], detail=True)
     def shopping_cart(self, request, pk):
-        user = self.request.user
-        recipe = get_object_or_404(Recipe, id=pk)
         if request.method == 'POST':
-            if not Shopping.objects.filter(user=user, recipe=recipe).exists():
-                shopping = Shopping.objects.create(user=user, recipe=recipe)
-                serializer = RecipeMiniSerializer(
-                    recipe, context={'request': request})
-                return Response(
-                    data=serializer.data, status=status.HTTP_201_CREATED)
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-        shopping = get_object_or_404(Shopping, user=user, recipe=recipe)
-        shopping.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            return joint_post(request.user, pk, Shopping,
+                              RecipeMiniSerializer)
+        return joint_delete(request.user, pk, Shopping)
 
     @action(methods=['post', 'delete'], detail=True)
     def favorite(self, request, pk):
-        user = self.request.user
-        recipe = get_object_or_404(Recipe, id=pk)
         if request.method == 'POST':
-            if not Favorite.objects.filter(
-                    user=user, favorite_recipe=recipe).exists():
-                favorite = Favorite.objects.create(
-                    user=user, favorite_recipe=recipe)
-                serializer = RecipeMiniSerializer(
-                    recipe, context={'request': request})
-                return Response(
-                    data=serializer.data, status=status.HTTP_201_CREATED)
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-        favorite = get_object_or_404(
-            Favorite, user=user, favorite_recipe=recipe)
-        favorite.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            return joint_post(request.user, pk, Favorite,
+                              RecipeMiniSerializer)
+        return joint_delete(request.user, pk, Favorite)
 
     @action(detail=False, permission_classes=(permissions.IsAuthenticated,))
     def download_shopping_cart(self, request):

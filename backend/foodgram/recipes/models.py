@@ -56,8 +56,9 @@ class Recipe(models.Model):
         verbose_name='Ингредиенты в рецепте',
     )
     cooking_time = models.IntegerField(
-        validators=[MinValueValidator(1)],
-        verbose_name='Время приготовления (в минутах)',
+        validators=[MinValueValidator(
+            1, message='Время готовки должно быть не меньше 1'
+        )], verbose_name='Время приготовления (в минутах)',
     )
     image = models.ImageField(upload_to='image/', verbose_name='Картинка')
 
@@ -80,8 +81,11 @@ class IngredientinRecipe(models.Model):
         related_name='recipe_with_ingredient',
         verbose_name='Связанные ингредиенты',
     )
-    amount = models.IntegerField(validators=[MinValueValidator(1)],
-                                 verbose_name='Количество ингредиента')
+    amount = models.IntegerField(
+        validators=[MinValueValidator(
+            1, message='Количество ингредиента должно быть больше 0!'
+        )], verbose_name='Количество ингредиента'
+    )
 
     class Meta:
         ordering = ['recipe']
@@ -102,7 +106,7 @@ class Favorite(models.Model):
         User, on_delete=models.CASCADE,
         related_name='favorite_recipes', verbose_name='Пользователь'
     )
-    favorite_recipe = models.ForeignKey(
+    recipe = models.ForeignKey(
         Recipe, on_delete=models.CASCADE,
         related_name='users_favorite', verbose_name='Избранный рецепт',
     )
@@ -112,11 +116,11 @@ class Favorite(models.Model):
         verbose_name_plural = ('Избранные рецепты')
         constraints = [
             models.UniqueConstraint(
-                fields=['user', 'favorite_recipe'], name='unique_favorite')
+                fields=['user', 'recipe'], name='unique_favorite')
         ]
 
     def __str__(self):
-        return f'{self.user} -> {self.favorite_recipe}'
+        return f'{self.user} -> {self.recipe}'
 
 
 class Shopping(models.Model):

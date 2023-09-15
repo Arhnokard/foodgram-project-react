@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -39,8 +40,12 @@ class Follow(models.Model):
         verbose_name_plural = ('Подписки')
         constraints = [
             models.UniqueConstraint(
-                fields=['user', 'following'], name='unique_follow'),
-            models.UniqueConstraint(
-                fields=['user', 'user'], name='no_foollow_author'
-            )
+                fields=['user', 'following'], name='unique_follow')
         ]
+
+    def clean(self):
+        if self.user == self.following:
+            raise ValidationError(
+                {'following': 'Нельзя подписываться на себя!'}
+            )
+        return super().clean()
