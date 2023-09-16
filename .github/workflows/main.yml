@@ -120,7 +120,7 @@ jobs:
         # которые нужно выполнить на сервере, 
         # с которым установлено соединение
         script: |
-          cd foodgram-progect
+          cd foodgram-project
           # Выполняет pull образов с Docker Hub
           sudo docker compose -f docker-compose.yml pull
           # Перезапускает все контейнеры в Docker Compose
