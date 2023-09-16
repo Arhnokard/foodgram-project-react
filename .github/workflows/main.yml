@@ -118,7 +118,7 @@ jobs:
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
         # Параметр script передаёт в action appleboy/ssh-action команды,
         # которые нужно выполнить на сервере, 
-        # с которым установлено соединение
+        # с которым установлено соединение.
         script: |
           cd foodgram-project
           # Выполняет pull образов с Docker Hub
