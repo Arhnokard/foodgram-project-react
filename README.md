@@ -1,4 +1,8 @@
-# praktikum_new_diplom
+## Foodgram-project-react
+```
+
 адрес: https://foodgram-progect.ddns.net/
-логин: Arh@mail.ru
+логин администратора: Arh@mail.ru
 пароль: 222536Kohi
+
+```
